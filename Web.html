@@ -1,0 +1,429 @@
+<!DOCTYPE HTML>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flow Player Multi-Canal</title>
+
+<style>
+/* Estilos base */
+html, body { margin: 0; padding: 0; height: 100%; background: #000; font-family: Arial, sans-serif; overflow: hidden; }
+
+#flow-player {
+  max-width: 1000px;
+  margin: auto;
+  position: relative;
+  background: #000;
+  border-radius: 10px;
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+#flow-player video { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* Controles */
+.controls {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px;
+  background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+  transition: opacity .25s;
+  z-index: 10;
+}
+
+#fp_bar { flex: 1; cursor: pointer; height: 6px; border-radius: 3px; accent-color: #14abd1; }
+
+button { background: none; border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+#fp_fs { position: absolute; top: 10px; right: 10px; z-index: 11; transition: opacity .25s; }
+
+/* Menús flotantes (Calidad y Canales) */
+.fp-menu {
+  position: absolute;
+  bottom: 70px;
+  right: 15px;
+  background: rgba(20, 20, 20, 0.95);
+  color: #fff;
+  border-radius: 8px;
+  display: none;
+  font-size: 14px;
+  z-index: 100;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #333;
+  min-width: 150px;
+}
+.fp-menu div { padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #222; }
+.fp-menu div:hover { background: #14abd1; }
+
+/* UI Auto-hide */
+#flow-player.hide-ui .controls, #flow-player.hide-ui #fp_fs { opacity: 0; pointer-events: none; }
+
+/* Responsive para iOS */
+#flow-player.ios-landscape {
+  transform: rotate(90deg);
+  transform-origin: center;
+  width: 100vh!important;
+  height: 100vw!important;
+  position: fixed!important;
+  top: 0; left: 0;
+  z-index: 9999;
+}
+</style>
+</head>
+
+<body>
+
+<div id="flow-player">
+  <video id="fp_video" playsinline autoplay></video>
+
+  <!-- Boton Fullscreen -->
+  <button id="fp_fs">
+    <svg viewBox="0 0 24 24" width="28" height="28" stroke="#14abd1" stroke-width="3" fill="none">
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
+    </svg>
+  </button>
+
+  <div class="controls">
+    <button id="fp_play">
+      <svg id="fp_icoPlay" viewBox="0 0 24 24" width="30" height="30" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+      <svg id="fp_icoPause" viewBox="0 0 24 24" width="30" height="30" fill="#fff" style="display:none"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>
+    </button>
+
+    <input id="fp_bar" type="range" value="0" min="0" step="0.1">
+
+    <button id="fp_mute">
+      <svg id="fp_icoMute" viewBox="0 0 24 24" width="26" height="26" fill="#fff"><path d="M3 10v4h4l5 5V5L7 10z"/></svg>
+    </button>
+
+    <!-- Boton Lista de Canales -->
+    <button id="fp_list">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="#14abd1"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+    </button>
+
+    <!-- Boton Calidad -->
+    <button id="fp_gear">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="#14abd1">
+        <path d="M19.4 13.5c.04-.5.06-1 .06-1.5s-.02-1-.06-1.5l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.03 7.03 0 0 0-2.6-1.5l-.38-2.65A.5.5 0 0 0 13.1 1h-4a.5.5 0 0 0-.5.42l-.38 2.65a7.03 7.03 0 0 0-2.6 1.5l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L2.6 10.5c-.04.5-.06 1-.06 1.5s.02 1 .06 1.5L.49 15.15a.5.5 0 0 0-.12.64l2 3.46c.14.24.43.34.69.22l2.49-1a7.03 7.03 0 0 0 2.6 1.5l.38 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.38-2.65a7.03 7.03 0 0 0 2.6-1.5l2.49 1c.26.12.55.02.69-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13.5zM11 15.5A3.5 3.5 0 1 1 11 8a3.5 3.5 0 0 1 0 7z"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Menú de Canales -->
+  <div id="fp_chmenu" class="fp-menu"></div>
+  
+  <!-- Menú de Calidad -->
+  <div id="fp_qmenu" class="fp-menu"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/shaka-player.compiled.js"></script>
+
+<script>
+/* CONFIGURACIÓN DE CANALES */
+const CANALES = [
+
+  {
+    nombre: "TNT Sports 🇦🇷",
+    url: "https://cdn02.gigared.com.ar/live/eds/TNT_Sports_Premium/sa_live_dash/TNT_Sports_Premium.mpd",
+    drm: { "f26eb059fb0854f4d4218c895d7ae803": "ffcb3fd4bd5657889215be4cb6275d1b" }
+  },
+
+  {
+    nombre: "Espn Premium 🇦🇷",
+    url: "https://cdn03.gigared.com.ar/live/eds/ESPN_Premium/sa_live_dash/ESPN_Premium.mpd",
+    drm: { "dca96877c202470bdad9839bea525c0a": "d651871131d4b26f0095bcb9771b8f2f" }
+  },
+  {
+    nombre: "Espn 🇦🇷",
+    url: "https://cdn02.gigared.com.ar/live/eds/ESPN/sa_live_dash/ESPN.mpd",
+    drm: { "8b55a3ba068f882f49b36d216f29506f": "77f418bbcfc73739ebca9c52321472d3" }
+  },
+  {
+    nombre: "Espn 2 🇦🇷",
+    url: "https://cdn02.gigared.com.ar/live/eds/ESPN2/sa_live_dash/ESPN2.mpd",
+    drm: { "02819f905f4e126d492693e44c688b82": "a12adec960cd1e33ad3b8ddbf0dd22b9" }
+  },
+  {
+    nombre: "Espn 3 🇦🇷",
+    url: "https://cdn02.gigared.com.ar/live/eds/ESPN3/sa_live_dash/ESPN3.mpd",
+    drm: { "ad0c72e30648501377425a62a2bf095c": "2cfbc73f423203a9fc8a1d983ec4e8bb" }
+  },
+  {
+    nombre: "Espn 4 🇦🇷",
+    url: "https://cdn02.gigared.com.ar/live/eds/ESPN4/sa_live_dash/ESPN4.mpd",
+    drm: { "ecafef3b8979c737d05ea191a02b7617": "f46cd12052b0da221a3a178e2bde0162" }
+  },
+  {
+    nombre: "TyC Sports 🇦🇷",
+    url: "https://cdn03.gigared.com.ar/live/eds/TyC_Sports/sa_live_dash/TyC_Sports.mpd",
+    drm: { "cac7b52cb14661fe3db0449020791d97": "0c2780acce4ef9d7334ef25be445ceb4" }
+  },
+  {
+    nombre: "TyC Sport Int 🇺🇳",
+    url: "https://cdn.cvattv.com.ar/live/c3eds/TyC_Internacional/SA_Live_dash_cenc/TyC_Internacional.mpd",
+    drm: { "58e1ebe75d944f6a98ea67b1c7c0a572": "1c311b069dbce31ce8e62a6e7e2433eb" }
+  },
+  {
+    nombre: "Dsports 🇦🇷",
+    url: "https://latam-cache-sv2-cdn.latamlive.net/DS1_ENC_LIVE/index.mpd",
+    drm: null
+  },
+  {
+    nombre: "Fox Sports 🇦🇷",
+    url: "https://cdn02.gigared.com.ar/live/eds/Fox_Sports/sa_live_dash/Fox_Sports.mpd",
+    drm: { "6c0016fff15fcc3cc5d103f821189100": "94d789ac388ccbbfbd2cf91d5b7db028" }
+  },
+  {
+    nombre: "Fox Sports 2 🇦🇷",
+    url: "https://cdn03.gigared.com.ar/live/eds/Fox_Sports_2/sa_live_dash/Fox_Sports_2.mpd",
+    drm: { "a2e448d00073c0a66e02caa20a2fe135": "70e9e4adfb2f0b5ac127654c1a56d238" }
+  },
+  {
+    nombre: "Fox Sports 3 🇦🇷",
+    url: "https://cdn02.gigared.com.ar/live/eds/Fox_Sports_3/sa_live_dash/Fox_Sports_3.mpd",
+    drm: { "f2f0d2f5e823bf3bd1113ed83b244c57": "addd4c11afb303beb21f95f79a935561" }
+  },
+  {
+    nombre: "Espn 🇺🇾",
+    url: "https://cdn.cvattv.com.ar/live/c4eds/ESPN_UY/SA_Live_dash_cenc/ESPN_UY.mpd",
+    drm: { "6362e1f36fcb7ee3c47debd9140336ad": "9ba1d46c5b9c7a3130a5dabbf7155175" }
+  },
+  {
+    nombre: "Espn 2 🇺🇾",
+    url: "https://cdn.cvattv.com.ar/live/c4eds/ESPN2_UY/SA_Live_dash_cenc/ESPN2_UY.mpd",
+    drm: { "0d820100144772fed9f38b83650fa7e1": "ded8cc47b29b0eb0b0a87df22e721847" }
+  },
+  {
+    nombre: "Espn 3 🇺🇾",
+    url: "https://cdn.cvattv.com.ar/live/c7eds/ESPN3_Uy-Py/SA_Live_dash_cenc/ESPN3_Uy-Py.mpd",
+    drm: { "ed53871dc50dcdc59a6271db3c8c51b3": "0c21dc8629e3f2e6fe9efa8b80dc447e" }
+  },
+  {
+    nombre: "Espn 🇵🇾",
+    url: "https://cdn.cvattv.com.ar/live/c4eds/ESPN2_PY/SA_Live_dash_cenc/ESPN2_PY.mpd",
+    drm: { "0aab4bd18144c7316c35c74ccce96ddc": "3e6db98d9df4747108bd896cba0be57d" }
+  },
+  {
+    nombre: "Espn 2 🇵🇾",
+    url: "https://chromecast.cvattv.com.ar/live/c4eds/ESPN_PY/SA_Live_dash_enc_C/ESPN_PY.mpd",
+    drm: { "4cbc5f5cbac72d38371bb63309e4a9d2": "dbc8de27da9726cd2e7659abb08e86ef" }
+  },
+  {
+    nombre: "NBA TV 🇺🇸",
+    url: "https://edge-live31-sl.cvattv.com.ar:443/tok_eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIxNzc0Nzk4MjY3Iiwic2lwIjoiMTkwLjE4OS4zMy4yNDMiLCJwYXRoIjoiL2xpdmUvYzdlZHMvRm94X1Nwb3J0c19QcmVtaXVuX0hEL1NBX0xpdmVfZGFzaF9jZW5jLyIsInNlc3Npb25fY2RuX2lkIjoiZDYzMWY0NjU1NTNkYTViMiIsInNlc3Npb25faWQiOiIiLCJjbGllbnRfaWQiOiIiLCJkZXZpY2VfaWQiOiIiLCJtYXhfc2Vzc2lvbnMiOjAsInNlc3Npb25fZHVyYXRpb24iOjAsInVybCI6Imh0dHBzOi8vMjAxLjIzNS42Ni4xMTQiLCJhdWQiOiI5NCIsInNvdXJjZXMiOls4NSwxNDQsODYsODhdfQ==.AdfsAviVT0SQRNjBEqTCtTT4GZ3WDkesvsag74gAwGB27iYipcfI-FHPqbUErv3NThcM9DNPdG0RABuzDz9SMg==/live/c6eds/NBA_TV/SA_Live_dash_enc/NBA_TV.mpd?|x-flow-origin=Android",
+    drm: { "d0c38de3c9844e4e9f975dffb3eff8ad": "141ca0fdf6ebadfa7107576b8e09e117" }
+  },
+  {
+    nombre: "Telefe 🇦🇷",
+    url: "https://cdn.cvattv.com.ar/out/v1/Telefe_Tend/SA_Live_dash_cenc/TELEFE.mpd",
+    drm: { "41b893e8a7af43e9943e7d54a02c4e60": "0b967f0ba9b543b8dac8ab9814b7970e" }
+  },
+  {
+    nombre: "Telefe Inter 🇦🇷",
+    url: "https://chromecast.cvattv.com.ar/live/c4eds/Telefe_Internacional/SA_Live_dash_enc_C/Telefe_Internacional.mpd",
+    drm: { "cc0abcc84ec380cfc192b96d32abad23": "9b7825385b89ff82d01909a4ae404877" }
+  },
+  {
+    nombre: "El Trece Inter 🇦🇷",
+    url: "https://chromecast.cvattv.com.ar/live/c4eds/Artear_Internacional/SA_Live_dash_enc_C/Artear_Internacional.mpd",
+    drm: { "5bd469f8bf268d5d148c3971c7c23fca": "9af98080d22846fdf2988b8ba9ec4add" }
+  },
+  {
+    nombre: "Verte+ 🇦🇷",
+    url: "https://chromecast.cvattv.com.ar/live/c7eds/Somos_Azul/SA_Live_dash_enc_C/Somos_Azul.mpd",
+    drm: { "4343f3f5f5b4d3dffa9584d20d912ac6": "9f0c94b68cf89c38d30dd56a2fbecd48" }
+  },
+  {
+    nombre: "HBO 2",
+    url: "https://chromecast.cvattv.com.ar/live/c6eds/HBO_2/SA_Live_dash_enc_C/HBO_2.mpd",
+    drm: { "c90cc57ad2c436e5a77db2f8d9db2d85": "04f6c73984bdcffd013050608497935d" }
+  },
+  {
+    nombre: "HBO Pop",
+    url: "https://chromecast.cvattv.com.ar/live/c7eds/HBO_POP/SA_Live_dash_enc_C/HBO_POP.mpd",
+    drm: { "f4e1ce5cef7e9a110fe968f8881b21fa": "6bbe2062b150b11496cdd5fbdd9c89d6" }
+  },
+  {
+    nombre: "Universal Premiere",
+    url: "https://chromecast.cvattv.com.ar/live/c6eds/Universal_Premiere/SA_Live_dash_enc_C/Universal_Premiere.mpd",
+    drm: { "0eb20b51ad13b58ad417f11318e588b3": "ad5d29a33d73d21187157802de8e6097" }
+  },
+  {
+    nombre: "Flow Music",
+    url: "https://chromecast.cvattv.com.ar/live/c7eds/Flow_Music_1/SA_Live_dash_enc_C/Flow_Music_1.mpd",
+    drm: { "f34cd7709f093d23d4db009107d96862": "d8a829138d970b45e867c9733a31b2f0" }
+  },
+  {
+    nombre: "Flow",
+    url: "https://chromecast.cvattv.com.ar/live/c7eds/Info_Flow/SA_Live_dash_enc_C/Info_Flow.mpd",
+    drm: null
+  },
+  {
+    nombre: "Canal de Prueba (DASH)",
+    url: "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd",
+    drm: null
+  }
+];
+
+/* ELEMENTOS */
+const video = document.getElementById("fp_video");
+const bar = document.getElementById("fp_bar");
+const play = document.getElementById("fp_play");
+const icoPlay = document.getElementById("fp_icoPlay");
+const icoPause = document.getElementById("fp_icoPause");
+const mute = document.getElementById("fp_mute");
+const fs = document.getElementById("fp_fs");
+const gear = document.getElementById("fp_gear");
+const btnList = document.getElementById("fp_list");
+const qmenu = document.getElementById("fp_qmenu");
+const chmenu = document.getElementById("fp_chmenu");
+const box = document.getElementById("flow-player");
+
+let player;
+
+/* INICIALIZAR SHAKA */
+async function initApp() {
+  shaka.polyfill.installAll();
+  if (!shaka.Player.isBrowserSupported()) return;
+
+  player = new shaka.Player(video);
+  player.addEventListener("error", (e) => console.error("Error:", e.detail));
+
+  // Cargar lista de canales en el menú
+  setupChannelMenu();
+
+  // Cargar primer canal por defecto
+  loadChannel(0);
+}
+
+function setupChannelMenu() {
+  chmenu.innerHTML = "<b>Seleccionar Canal</b>";
+  CANALES.forEach((ch, index) => {
+    const div = document.createElement("div");
+    div.textContent = ch.nombre;
+    div.onclick = () => {
+      loadChannel(index);
+      chmenu.style.display = "none";
+    };
+    chmenu.appendChild(div);
+  });
+}
+
+async function loadChannel(index) {
+  const canal = CANALES[index];
+  console.log("Cargando:", canal.nombre);
+
+  const config = {
+    abr: { enabled: true },
+    preferredAudioLanguage: "es"
+  };
+
+  if (canal.drm) {
+    config.drm = { clearKeys: canal.drm };
+  } else {
+    config.drm = { clearKeys: {} };
+  }
+
+  player.configure(config);
+
+  try {
+    await player.load(canal.url);
+    updateQualityMenu();
+  } catch (e) {
+    console.error("Error cargando canal", e);
+  }
+}
+
+function updateQualityMenu() {
+  const tracks = player.getVariantTracks();
+  qmenu.innerHTML = "<b>Calidad</b>";
+  
+  const auto = document.createElement("div");
+  auto.textContent = "Auto";
+  auto.onclick = () => { player.configure({ abr: { enabled: true } }); qmenu.style.display = "none"; };
+  qmenu.appendChild(auto);
+
+  // Filtrar y ordenar resoluciones únicas
+  const uniqueHeights = [...new Set(tracks.map(t => t.height).filter(h => h))].sort((a,b)=>b-a);
+  
+  uniqueHeights.forEach(h => {
+    const div = document.createElement("div");
+    div.textContent = h + "p";
+    div.onclick = () => {
+      const track = tracks.find(t => t.height === h);
+      player.configure({ abr: { enabled: false } });
+      player.selectVariantTrack(track, true);
+      qmenu.style.display = "none";
+    };
+    qmenu.appendChild(div);
+  });
+}
+
+/* CONTROLES DE REPRODUCCIÓN (Mantenidos del original) */
+play.onclick = () => video.paused ? video.play() : video.pause();
+video.onplay = () => { icoPlay.style.display = "none"; icoPause.style.display = "block"; showUI(); };
+video.onpause = () => { icoPlay.style.display = "block"; icoPause.style.display = "none"; box.classList.remove("hide-ui"); };
+
+video.ontimeupdate = () => { bar.max = video.duration || 0; bar.value = video.currentTime; };
+bar.oninput = () => video.currentTime = bar.value;
+mute.onclick = () => video.muted = !video.muted;
+
+function toggleFS() {
+  if (!document.fullscreenElement) box.requestFullscreen();
+  else document.exitFullscreen();
+}
+fs.onclick = toggleFS;
+video.ondblclick = toggleFS;
+
+gear.onclick = (e) => {
+  e.stopPropagation();
+  chmenu.style.display = "none";
+  qmenu.style.display = qmenu.style.display === "block" ? "none" : "block";
+};
+
+btnList.onclick = (e) => {
+  e.stopPropagation();
+  qmenu.style.display = "none";
+  chmenu.style.display = chmenu.style.display === "block" ? "none" : "block";
+};
+
+document.addEventListener("click", () => {
+  qmenu.style.display = "none";
+  chmenu.style.display = "none";
+});
+
+/* AUTO HIDE UI */
+let uiTimer;
+function showUI() {
+  box.classList.remove("hide-ui");
+  clearTimeout(uiTimer);
+  if (!video.paused) {
+    uiTimer = setTimeout(() => { box.classList.add("hide-ui"); }, 3000);
+  }
+}
+box.addEventListener("mousemove", showUI);
+box.addEventListener("touchstart", showUI);
+
+/* LANDSCAPE IOS */
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+document.addEventListener("fullscreenchange", async () => {
+  if (document.fullscreenElement) {
+    if (!isIOS && screen.orientation?.lock) try { await screen.orientation.lock("landscape") } catch (e) {}
+    if (isIOS) box.classList.add("ios-landscape");
+  } else {
+    if (!isIOS && screen.orientation?.unlock) try { screen.orientation.unlock() } catch (e) {}
+    box.classList.remove("ios-landscape");
+  }
+});
+
+initApp();
+</script>
+
+</body>
+</html>
